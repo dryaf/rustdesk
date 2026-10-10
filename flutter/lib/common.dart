@@ -22,7 +22,7 @@ import 'package:get/get.dart';
 import 'package:get/get_rx/src/rx_workers/utils/debouncer.dart';
 import 'package:provider/provider.dart';
 import 'package:uni_links/uni_links.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_hbb/utils/local_url.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
@@ -4268,8 +4268,6 @@ Widget? buildAvatarWidget({
         imageProvider = MemoryImage(base64Decode(trimmed.substring(comma + 1)));
       } catch (_) {}
     }
-  } else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    imageProvider = NetworkImage(trimmed);
   }
 
   if (imageProvider == null) return fallback;

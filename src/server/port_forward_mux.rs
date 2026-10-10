@@ -199,7 +199,19 @@ async fn run_controlled_channel(
 ) {
     let mut pending: Vec<Bytes> = Vec::new();
     let mut pending_len = 0usize;
-    let connect = timeout(CONNECT_TIMEOUT_MS, TcpStream::connect(&addr));
+    let target = match crate::lan_only::peer_addr(&addr, 0) {
+        Ok(target) => target,
+        Err(err) => {
+            if let Err(err) = sink
+                .send_ordered(opened_msg(id, false, &err.to_string(), 0))
+                .await
+            {
+                log::trace!("Cannot report rejected LAN forwarding target: {err}");
+            }
+            return;
+        }
+    };
+    let connect = timeout(CONNECT_TIMEOUT_MS, TcpStream::connect(target));
     tokio::pin!(connect);
     let socket = loop {
         tokio::select! {

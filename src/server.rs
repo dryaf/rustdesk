@@ -10,16 +10,15 @@ use bytes::Bytes;
 pub use connection::*;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use hbb_common::config::Config2;
-use hbb_common::tcp::{self, new_listener};
 use hbb_common::{
     allow_err,
     anyhow::Context,
     bail,
-    config::{Config, CONNECT_TIMEOUT, RELAY_PORT},
+    config::{Config, CONNECT_TIMEOUT},
     log,
     protobuf::{Enum, Message as _},
     rendezvous_proto::*,
-    socket_client,
+    tcp,
     sodiumoxide::crypto::{box_, sign},
     timeout, tokio, ResultType, Stream,
 };
@@ -177,37 +176,6 @@ pub fn new() -> ServerPtr {
     Arc::new(RwLock::new(server))
 }
 
-async fn accept_connection_(
-    server: ServerPtr,
-    socket: Stream,
-    secure: bool,
-    meta: ConnectionMeta,
-    slot: crate::rendezvous_mediator::PunchSlot,
-) -> ResultType<()> {
-    let local_addr = socket.local_addr();
-    drop(socket);
-    // even we drop socket, below still may fail if not use reuse_addr,
-    // there is TIME_WAIT before socket really released, so sometimes we
-    // see "Only one usage of each socket address is normally permitted" on windows sometimes,
-    let listener = new_listener(local_addr, true).await?;
-    log::info!("Server listening on: {}", &listener.local_addr()?);
-    if let Ok((stream, addr)) = timeout(CONNECT_TIMEOUT, listener.accept()).await? {
-        // The peer is in: the place goes back before the session runs, as every punch's does.
-        drop(slot);
-        stream.set_nodelay(true).ok();
-        let stream_addr = stream.local_addr()?;
-        create_tcp_connection(
-            server,
-            Stream::from(stream, stream_addr),
-            addr,
-            secure,
-            meta,
-        )
-        .await?;
-    }
-    Ok(())
-}
-
 pub async fn create_tcp_connection(
     server: ServerPtr,
     stream: Stream,
@@ -348,74 +316,6 @@ async fn identity_handshake(stream: &mut Stream, secure: bool) -> ResultType<()>
         }
     }
 
-    Ok(())
-}
-
-pub(crate) async fn accept_connection(
-    server: ServerPtr,
-    socket: Stream,
-    peer_addr: SocketAddr,
-    secure: bool,
-    meta: ConnectionMeta,
-    slot: crate::rendezvous_mediator::PunchSlot,
-) {
-    if let Err(err) = accept_connection_(server, socket, secure, meta, slot).await {
-        log::warn!("Failed to accept connection from {}: {}", peer_addr, err);
-    }
-}
-
-pub async fn create_relay_connection(
-    server: ServerPtr,
-    relay_server: String,
-    uuid: String,
-    peer_addr: SocketAddr,
-    secure: bool,
-    ipv4: bool,
-    meta: ConnectionMeta,
-) {
-    if let Err(err) = create_relay_connection_(
-        server,
-        relay_server,
-        uuid.clone(),
-        peer_addr,
-        secure,
-        ipv4,
-        meta,
-    )
-    .await
-    {
-        log::error!(
-            "Failed to create relay connection for {} with uuid {}: {}",
-            peer_addr,
-            uuid,
-            err
-        );
-    }
-}
-
-async fn create_relay_connection_(
-    server: ServerPtr,
-    relay_server: String,
-    uuid: String,
-    peer_addr: SocketAddr,
-    secure: bool,
-    ipv4: bool,
-    meta: ConnectionMeta,
-) -> ResultType<()> {
-    let mut stream = socket_client::connect_tcp(
-        socket_client::ipv4_to_ipv6(crate::check_port(relay_server, RELAY_PORT), ipv4),
-        CONNECT_TIMEOUT,
-    )
-    .await?;
-    let mut msg_out = RendezvousMessage::new();
-    let licence_key = crate::get_key(true).await;
-    msg_out.set_request_relay(RequestRelay {
-        licence_key,
-        uuid,
-        ..Default::default()
-    });
-    stream.send(&msg_out).await?;
-    create_tcp_connection(server, stream, peer_addr, secure, meta).await?;
     Ok(())
 }
 

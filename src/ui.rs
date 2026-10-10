@@ -591,18 +591,8 @@ impl UI {
         get_uuid()
     }
 
-    fn open_url(&self, url: String) {
-        #[cfg(windows)]
-        let p = "explorer";
-        #[cfg(target_os = "macos")]
-        let p = "open";
-        #[cfg(target_os = "linux")]
-        let p = if std::path::Path::new("/usr/bin/firefox").exists() {
-            "firefox"
-        } else {
-            "xdg-open"
-        };
-        allow_err!(std::process::Command::new(p).arg(url).spawn());
+    fn open_url(&self, _url: String) {
+        log::info!("External links are unavailable in the LAN-only build");
     }
 
     fn change_id(&self, id: String) {

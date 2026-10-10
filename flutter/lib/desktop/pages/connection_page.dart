@@ -10,7 +10,7 @@ import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
-import 'package:url_launcher/url_launcher_string.dart';
+import 'package:flutter_hbb/utils/local_url.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
 
@@ -432,7 +432,7 @@ class _ConnectionPageState extends State<ConnectionPage>
                               counterText: '',
                               hintText: _idInputFocused.value
                                   ? null
-                                  : translate('Enter Remote ID'),
+                                  : '192.168.1.20',
                               contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 15, vertical: 13)),
                           controller: fieldTextEditingController,

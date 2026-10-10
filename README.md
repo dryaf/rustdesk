@@ -1,3 +1,39 @@
+# RustDesk LAN-only fork
+
+This fork is intended for a Linux host controlled from a macOS client. Build this
+source for both computers; upstream RustDesk downloads do not contain these changes.
+
+Start the host service, set a password, and connect from the Mac using the Linux
+computer's private IP (for example `192.168.1.20`). Direct access is enabled whenever
+the service is running. The default port is TCP **21118**; LAN discovery uses UDP
+**21119**. Allow these ports from your LAN in the host firewall. A custom port can
+be entered as `192.168.1.20:21118`.
+
+ID servers, relays, NAT/STUN/WebRTC negotiation, HTTP services, account sync,
+automatic updates, downloads, Telegram, and remote avatars are removed or
+unavailable. Connections accept literal private, link-local, or loopback IPs;
+hostnames and public IPs are rejected before connecting. Existing proxy and server
+settings cannot enable external connections.
+
+Run `./build-lan.sh --setup` once, then `./build-lan.sh` to build the Flutter
+desktop app for the current machine. Setup installs Flutter locally and uses
+`sudo apt-get` for Debian/Ubuntu build packages. Run the commands separately on
+Linux and on your Mac; macOS needs its native prerequisites installed first.
+See [build setup](docs/LAN_ONLY.md#building) for details.
+
+After the Linux release build, run `./install-lan.sh` from your desktop terminal.
+It installs the bundle under `/usr/local/lib/rustdesk-lan`, adds the
+`rustdesk-lan` command and a **RustDesk LAN** app-menu entry, and pins it to the
+GNOME/Ubuntu dock. It also installs the systemd unit required by **Run service**;
+click that button in the app to start hosting and enable the service at boot.
+It asks for sudo when copying system files. See
+[Linux installation](docs/LAN_ONLY.md#installing-on-ubuntu) for options.
+
+See [LAN-only implementation and verification](docs/LAN_ONLY.md) for scope,
+limitations, and the regression surface. The remaining README describes upstream
+build prerequisites and features; its server and account instructions do not apply
+to this fork.
+
 <p align="center">
   <img src="res/logo-header.svg" alt="RustDesk - Your remote desktop"><br>
   <a href="#raw-steps-to-build">Build</a> •

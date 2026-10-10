@@ -784,24 +784,7 @@ class InstallMe: Reactor.Component {
 }
 
 function download(from, to, args..) {
-    var rqp = { type:#get, url: from, toFile: to };
-    var fn = 0;
-    var on = 0;
-    for( var p in args ) {
-        if( p instanceof Function ) {
-            switch(++fn) {
-                case 1: rqp.success = p; break;
-                case 2: rqp.error = p; break;
-                case 3: rqp.progress = p; break;
-            }
-        } else if( p instanceof Object ) {
-            switch(++on) {
-                case 1: rqp.params = p; break;
-                case 2: rqp.headers = p; break;
-            }
-        }  
-    }
-    view.request(rqp);
+    throw "Downloads are unavailable in the LAN-only build";
 }
 
 // current running version is higher than installed

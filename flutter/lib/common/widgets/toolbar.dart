@@ -13,7 +13,7 @@ import 'package:flutter_hbb/models/model.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:get/get.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_hbb/utils/local_url.dart';
 
 bool isEditOsPassword = false;
 const String kPeerOptionAllowWaylandKeyboard = 'allow-wayland-keyboard';

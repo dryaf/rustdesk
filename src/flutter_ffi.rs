@@ -2521,15 +2521,15 @@ pub fn is_disable_settings() -> SyncReturn<bool> {
 }
 
 pub fn is_disable_ab() -> SyncReturn<bool> {
-    SyncReturn(config::is_disable_ab())
+    SyncReturn(true)
 }
 
 pub fn is_disable_account() -> SyncReturn<bool> {
-    SyncReturn(config::is_disable_account())
+    SyncReturn(true)
 }
 
 pub fn is_disable_group_panel() -> SyncReturn<bool> {
-    SyncReturn(LocalConfig::get_option("disable-group-panel") == "Y")
+    SyncReturn(true)
 }
 
 // windows only

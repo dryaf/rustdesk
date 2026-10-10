@@ -1785,12 +1785,12 @@ impl Connection {
     pub(super) fn normalize_port_forward_target(pf: &mut PortForward) -> (String, bool) {
         let mut is_rdp = false;
         if pf.host == "RDP" && pf.port == 0 {
-            pf.host = "localhost".to_owned();
+            pf.host = "127.0.0.1".to_owned();
             pf.port = 3389;
             is_rdp = true;
         }
         if pf.host.is_empty() {
-            pf.host = "localhost".to_owned();
+            pf.host = "127.0.0.1".to_owned();
         }
         (format!("{}:{}", pf.host, pf.port), is_rdp)
     }
@@ -1814,7 +1814,14 @@ impl Connection {
         let mut pf = pf.clone();
         let (mut addr, is_rdp) = Self::normalize_port_forward_target(&mut pf);
         self.port_forward_address = addr.clone();
-        match timeout(3000, TcpStream::connect(&addr)).await {
+        let target = match crate::lan_only::peer_addr(&addr, 0) {
+            Ok(target) => target,
+            Err(err) => {
+                self.send_login_error(err.to_string()).await;
+                return false;
+            }
+        };
+        match timeout(3000, TcpStream::connect(target)).await {
             Ok(Ok(sock)) => {
                 self.port_forward_socket = Some(Framed::new(sock, BytesCodec::new()));
                 true

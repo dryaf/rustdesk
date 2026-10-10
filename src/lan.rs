@@ -23,6 +23,39 @@ use std::{
 
 type Message = RendezvousMessage;
 
+#[cfg(all(test, any(target_os = "linux", target_os = "macos")))]
+#[test]
+fn lan_interface_enumeration_includes_loopback() {
+    assert!(local_interfaces()
+        .iter()
+        .any(|(ip, name)| ip.is_loopback() && !name.is_empty()));
+}
+
+pub(crate) fn local_interfaces() -> Vec<(IpAddr, String)> {
+    // default-net's enumeration sends gateway probes to a public IP.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    match nix::ifaddrs::getifaddrs() {
+        Ok(interfaces) => {
+            return interfaces
+                .filter_map(|interface| {
+                    let addr = interface.address?;
+                    let ip = addr
+                        .as_sockaddr_in()
+                        .map(|addr| IpAddr::V4(addr.ip()))
+                        .or_else(|| addr.as_sockaddr_in6().map(|addr| IpAddr::V6(addr.ip())))?;
+                    Some((ip, interface.interface_name))
+                })
+                .collect();
+        }
+        Err(err) => hbb_common::throttled_log!(
+            std::time::Duration::from_secs(30),
+            warn,
+            "Cannot enumerate LAN interfaces: {err}"
+        ),
+    }
+    Vec::new()
+}
+
 #[cfg(not(target_os = "ios"))]
 pub(super) fn start_listening() -> ResultType<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], get_broadcast_port()));
@@ -32,6 +65,9 @@ pub(super) fn start_listening() -> ResultType<()> {
     loop {
         let mut buf = [0; 2048];
         if let Ok((len, addr)) = socket.recv_from(&mut buf) {
+            if !crate::lan_only::is_lan_ip(addr.ip()) {
+                continue;
+            }
             if let Ok(msg_in) = Message::parse_from_bytes(&buf[0..len]) {
                 match msg_in.union {
                     Some(rendezvous_message::Union::PeerDiscovery(p)) => {
@@ -84,17 +120,15 @@ pub async fn discover() -> ResultType<()> {
 }
 
 pub fn send_wol(id: String) {
-    let interfaces = default_net::get_interfaces();
+    let interfaces = local_interfaces();
     for peer in &config::LanPeers::load().peers {
         if peer.id == id {
             for (_, mac) in peer.ip_mac.iter() {
                 if let Ok(mac_addr) = mac.parse() {
-                    for interface in &interfaces {
-                        for ipv4 in &interface.ipv4 {
-                            // remove below mask check to avoid unexpected bug
-                            // if (u32::from(ipv4.addr) & u32::from(ipv4.netmask)) == (u32::from(peer_ip) & u32::from(ipv4.netmask))
-                            log::info!("Send wol to {mac_addr} of {}", ipv4.addr);
-                            allow_err!(wol::send_wol(mac_addr, None, Some(IpAddr::V4(ipv4.addr))));
+                    for (ip, _) in &interfaces {
+                        if ip.is_ipv4() && crate::lan_only::is_lan_ip(*ip) {
+                            log::info!("Send wol to {mac_addr} of {ip}");
+                            allow_err!(wol::send_wol(mac_addr, None, Some(*ip)));
                         }
                     }
                 }
@@ -110,33 +144,22 @@ fn get_broadcast_port() -> u16 {
 }
 
 fn get_mac(_ip: &IpAddr) -> String {
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     if let Ok(mac) = get_mac_by_ip(_ip) {
         mac.to_string()
     } else {
         "".to_owned()
     }
-    #[cfg(target_os = "ios")]
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     "".to_owned()
 }
 
-#[cfg(not(target_os = "ios"))]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn get_mac_by_ip(ip: &IpAddr) -> ResultType<String> {
-    for interface in default_net::get_interfaces() {
-        match ip {
-            IpAddr::V4(local_ipv4) => {
-                if interface.ipv4.iter().any(|x| x.addr == *local_ipv4) {
-                    if let Some(mac_addr) = interface.mac_addr {
-                        return Ok(mac_addr.address());
-                    }
-                }
-            }
-            IpAddr::V6(local_ipv6) => {
-                if interface.ipv6.iter().any(|x| x.addr == *local_ipv6) {
-                    if let Some(mac_addr) = interface.mac_addr {
-                        return Ok(mac_addr.address());
-                    }
-                }
+    for (addr, name) in local_interfaces() {
+        if addr == *ip {
+            if let Some(mac) = mac_address::mac_address_by_name(&name)? {
+                return Ok(mac.to_string());
             }
         }
     }
@@ -163,19 +186,16 @@ fn get_ipaddr_by_peer<A: ToSocketAddrs>(peer: A) -> Option<IpAddr> {
 
 fn create_broadcast_sockets() -> Vec<UdpSocket> {
     let mut ipv4s = Vec::new();
-    // TODO: maybe we should use a better way to get ipv4 addresses.
-    // But currently, it's ok to use `[Ipv4Addr::UNSPECIFIED]` for discovery.
-    // `default_net::get_interfaces()` causes undefined symbols error when `flutter build` on iOS simulator x86_64
-    #[cfg(not(any(target_os = "ios")))]
-    for interface in default_net::get_interfaces() {
-        for ipv4 in &interface.ipv4 {
-            ipv4s.push(ipv4.addr.clone());
+    for (ip, _) in local_interfaces() {
+        if let IpAddr::V4(ip) = ip {
+            if crate::lan_only::is_lan_ip(ip.into()) {
+                ipv4s.push(ip);
+            }
         }
     }
     ipv4s.push(Ipv4Addr::UNSPECIFIED); // for robustness
     let mut sockets = Vec::new();
     for v4_addr in ipv4s {
-        // removing v4_addr.is_private() check, https://github.com/rustdesk/rustdesk/issues/4663
         if let Ok(s) = UdpSocket::bind(SocketAddr::from((v4_addr, 0))) {
             if s.set_broadcast(true).is_ok() {
                 sockets.push(s);
@@ -236,6 +256,9 @@ fn wait_response(
     loop {
         let mut buf = [0; 2048];
         if let Ok((len, addr)) = socket.recv_from(&mut buf) {
+            if !crate::lan_only::is_lan_ip(addr.ip()) {
+                continue;
+            }
             if let Ok(msg_in) = Message::parse_from_bytes(&buf[0..len]) {
                 match msg_in.union {
                     Some(rendezvous_message::Union::PeerDiscovery(p)) => {
@@ -272,7 +295,7 @@ fn wait_response(
 
                             if local_mac.is_empty() && p.mac.is_empty() || local_mac != p.mac {
                                 allow_err!(tx.send(config::DiscoveryPeer {
-                                    id: p.id.clone(),
+                                    id: addr.ip().to_string(),
                                     ip_mac: HashMap::from([
                                         (addr.ip().to_string(), p.mac.clone(),)
                                     ]),

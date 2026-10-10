@@ -983,9 +983,6 @@ class RecentPeerCard extends BasePeerCard {
       menuItems.add(_tcpTunnelingAction(context));
     }
     // menuItems.add(await _openNewConnInOptAction(peer.id));
-    if (!isWeb) {
-      menuItems.add(await _forceAlwaysRelayAction(peer.id));
-    }
     if (isWindows && peer.platform == kPeerPlatformWindows) {
       menuItems.add(_rdpAction(context, peer.id));
     }
@@ -1046,9 +1043,6 @@ class FavoritePeerCard extends BasePeerCard {
       menuItems.add(_tcpTunnelingAction(context));
     }
     // menuItems.add(await _openNewConnInOptAction(peer.id));
-    if (!isWeb) {
-      menuItems.add(await _forceAlwaysRelayAction(peer.id));
-    }
     if (isWindows && peer.platform == kPeerPlatformWindows) {
       menuItems.add(_rdpAction(context, peer.id));
     }
@@ -1108,9 +1102,6 @@ class DiscoveredPeerCard extends BasePeerCard {
       menuItems.add(_tcpTunnelingAction(context));
     }
     // menuItems.add(await _openNewConnInOptAction(peer.id));
-    if (!isWeb) {
-      menuItems.add(await _forceAlwaysRelayAction(peer.id));
-    }
     if (isWindows && peer.platform == kPeerPlatformWindows) {
       menuItems.add(_rdpAction(context, peer.id));
     }
@@ -1165,9 +1156,6 @@ class AddressBookPeerCard extends BasePeerCard {
       menuItems.add(_tcpTunnelingAction(context));
     }
     // menuItems.add(await _openNewConnInOptAction(peer.id));
-    if (!isWeb) {
-      menuItems.add(await _forceAlwaysRelayAction(peer.id));
-    }
     if (isWindows && peer.platform == kPeerPlatformWindows) {
       menuItems.add(_rdpAction(context, peer.id));
     }
@@ -1322,9 +1310,6 @@ class MyGroupPeerCard extends BasePeerCard {
       menuItems.add(_tcpTunnelingAction(context));
     }
     // menuItems.add(await _openNewConnInOptAction(peer.id));
-    if (!isWeb) {
-      menuItems.add(await _forceAlwaysRelayAction(peer.id));
-    }
     if (isWindows && peer.platform == kPeerPlatformWindows) {
       menuItems.add(_rdpAction(context, peer.id));
     }

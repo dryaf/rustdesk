@@ -8,7 +8,7 @@ import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/user_model.dart';
 import 'package:get/get.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_hbb/utils/local_url.dart';
 
 import '../../common.dart';
 import './dialog.dart';

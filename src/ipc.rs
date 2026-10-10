@@ -887,8 +887,8 @@ async fn handle(data: Data, stream: &mut Connection) {
             }
         }
         Data::OnlineStatus(_) => {
-            let x = config::get_online_state();
-            let confirmed = Config::get_key_confirmed();
+            let x = i64::from(crate::rendezvous_mediator::lan_listening());
+            let confirmed = true;
             allow_err!(stream.send(&Data::OnlineStatus(Some((x, confirmed)))).await);
         }
         Data::ConfirmedKey(None) => {

@@ -4,11 +4,9 @@ use hbb_common::password_security;
 use hbb_common::{
     allow_err,
     bytes::Bytes,
-    config::{self, Config, LocalConfig, PeerConfig, CONNECT_TIMEOUT, RENDEZVOUS_PORT},
+    config::{self, Config, LocalConfig, PeerConfig},
     directories_next,
-    futures::future::join_all,
     log,
-    rendezvous_proto::*,
     tokio,
 };
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -29,8 +27,6 @@ use crate::common::SOFTWARE_UPDATE_URL;
 use crate::hbbs_http::account;
 #[cfg(not(any(target_os = "ios")))]
 use crate::ipc;
-
-type Message = RendezvousMessage;
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub type Children = Arc<Mutex<(bool, HashMap<(String, String), Child>)>>;
@@ -91,10 +87,13 @@ const INIT_ASYNC_JOB_STATUS: &str = " ";
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
 #[inline]
 pub fn get_id() -> String {
-    #[cfg(any(target_os = "android", target_os = "ios"))]
-    return Config::get_id();
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    return ipc::get_id();
+    crate::lan::local_interfaces()
+        .into_iter()
+        .map(|(ip, _)| ip)
+        .filter(|ip| ip.is_ipv4())
+        .find(|ip| !ip.is_loopback() && crate::lan_only::is_lan_ip(*ip))
+        .map(|ip| ip.to_string())
+        .unwrap_or_default()
 }
 
 #[inline]
@@ -162,6 +161,9 @@ pub fn refresh_options() {
 
 #[inline]
 pub fn get_option<T: AsRef<str>>(key: T) -> String {
+    if key.as_ref() == "direct-server" {
+        return "Y".to_owned();
+    }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let map = OPTIONS.lock().unwrap();
@@ -354,8 +356,11 @@ pub fn get_options() -> String {
 }
 
 #[inline]
-pub fn test_if_valid_server(host: String, test_with_proxy: bool) -> String {
-    hbb_common::socket_client::test_if_valid_server(&host, test_with_proxy)
+pub fn test_if_valid_server(host: String, _test_with_proxy: bool) -> String {
+    match crate::lan_only::peer_addr(&host, 21118) {
+        Ok(_) => String::new(),
+        Err(err) => err.to_string(),
+    }
 }
 
 #[inline]
@@ -1079,75 +1084,8 @@ impl DeployResult {
     }
 }
 
-pub fn deploy_device(token: String, new_id: Option<String>) -> DeployResult {
-    if Config::no_register_device() {
-        return DeployResult::Error("Cannot deploy an unregistrable device!".to_owned());
-    }
-    let token = token.trim();
-    if token.is_empty() {
-        return DeployResult::Error("token is required!".to_owned());
-    }
-    #[cfg(any(target_os = "android", target_os = "ios"))]
-    let local_id = Config::get_id();
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    let local_id = ipc::get_id();
-    let id_to_deploy = new_id.clone().unwrap_or_else(|| local_id.clone());
-    let uuid = crate::encode64(hbb_common::get_uuid());
-    let pk = crate::encode64(Config::get_key_pair().1);
-    let body = serde_json::json!({
-        "id": id_to_deploy,
-        "uuid": uuid,
-        "pk": pk,
-    });
-    let header = "Authorization: Bearer ".to_owned() + token;
-    let url = get_api_server() + "/api/devices/deploy";
-    let text = match crate::post_request_sync(url, body.to_string(), &header) {
-        Ok(text) => text,
-        Err(err) => return DeployResult::Error(format!("Request failed: {}", err)),
-    };
-    let parsed: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);
-    match parsed["result"].as_str().unwrap_or("") {
-        "OK" => {
-            if let Some(new_id) = new_id {
-                if new_id != local_id {
-                    #[cfg(any(target_os = "android", target_os = "ios"))]
-                    {
-                        Config::set_key_confirmed(false);
-                        Config::set_id(&new_id);
-                    }
-                    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-                    if let Err(err) = ipc::set_config("id", new_id) {
-                        return DeployResult::Error(format!(
-                            "Failed to persist deployed id locally: {}",
-                            err
-                        ));
-                    }
-                }
-            }
-            #[cfg(not(any(target_os = "android", target_os = "ios")))]
-            if let Err(err) = ipc::notify_deployed() {
-                log::warn!("Failed to notify deployed state: {}", err);
-            }
-            #[cfg(target_os = "android")]
-            {
-                crate::rendezvous_mediator::NEEDS_DEPLOY
-                    .store(false, std::sync::atomic::Ordering::SeqCst);
-                crate::rendezvous_mediator::reset_needs_deploy_notification();
-                crate::rendezvous_mediator::RendezvousMediator::restart();
-            }
-            DeployResult::Ok
-        }
-        "NOT_ENABLED" => DeployResult::NotEnabled,
-        "INVALID_INPUT" => DeployResult::InvalidInput,
-        "ID_TAKEN" => DeployResult::IdTaken(id_to_deploy),
-        _ => {
-            if text.is_empty() {
-                DeployResult::Error("Unknown response.".to_owned())
-            } else {
-                DeployResult::Error(text)
-            }
-        }
-    }
+pub fn deploy_device(_token: String, _new_id: Option<String>) -> DeployResult {
+    DeployResult::Error("Device deployment is unavailable in the LAN-only build".to_owned())
 }
 
 #[inline]
@@ -1498,125 +1436,8 @@ pub async fn change_id_shared(id: String, old_id: String) -> String {
     res
 }
 
-pub async fn change_id_shared_(id: String, old_id: String) -> &'static str {
-    if !hbb_common::is_valid_custom_id(&id) {
-        log::debug!(
-            "debugging invalid id: \"{id}\", len: {}, base64: \"{}\"",
-            id.len(),
-            crate::encode64(&id)
-        );
-        let bom = id.trim_start_matches('\u{FEFF}');
-        log::debug!("bom: {}", hbb_common::is_valid_custom_id(&bom));
-        return INVALID_FORMAT;
-    }
-
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    let uuid = Bytes::from(
-        hbb_common::machine_uid::get()
-            .unwrap_or("".to_owned())
-            .as_bytes()
-            .to_vec(),
-    );
-    #[cfg(any(target_os = "android", target_os = "ios"))]
-    let uuid = Bytes::from(hbb_common::get_uuid());
-
-    if uuid.is_empty() {
-        log::error!("Failed to change id, uuid is_empty");
-        return UNKNOWN_ERROR;
-    }
-
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    let rendezvous_servers = crate::ipc::get_rendezvous_servers(1_000).await;
-    #[cfg(any(target_os = "android", target_os = "ios"))]
-    let rendezvous_servers = Config::get_rendezvous_servers();
-
-    let mut futs = Vec::new();
-    let err: Arc<Mutex<&str>> = Default::default();
-    for rendezvous_server in rendezvous_servers {
-        let err = err.clone();
-        let id = id.to_owned();
-        let uuid = uuid.clone();
-        let old_id = old_id.clone();
-        futs.push(tokio::spawn(async move {
-            let tmp = check_id(rendezvous_server, old_id, id, uuid).await;
-            if !tmp.is_empty() {
-                *err.lock().unwrap() = tmp;
-            }
-        }));
-    }
-    join_all(futs).await;
-    let err = *err.lock().unwrap();
-    if err.is_empty() {
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
-        crate::ipc::set_config_async("id", id.to_owned()).await.ok();
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        {
-            Config::set_key_confirmed(false);
-            Config::set_id(&id);
-        }
-    }
-    err
-}
-
-async fn check_id(
-    rendezvous_server: String,
-    old_id: String,
-    id: String,
-    uuid: Bytes,
-) -> &'static str {
-    if let Ok(mut socket) = hbb_common::socket_client::connect_tcp(
-        crate::check_port(rendezvous_server, RENDEZVOUS_PORT),
-        CONNECT_TIMEOUT,
-    )
-    .await
-    {
-        let mut msg_out = Message::new();
-        msg_out.set_register_pk(RegisterPk {
-            old_id,
-            id,
-            uuid,
-            ..Default::default()
-        });
-        let mut ok = false;
-        if socket.send(&msg_out).await.is_ok() {
-            if let Some(msg_in) =
-                crate::common::get_next_nonkeyexchange_msg(&mut socket, None).await
-            {
-                match msg_in.union {
-                    Some(rendezvous_message::Union::RegisterPkResponse(rpr)) => {
-                        match rpr.result.enum_value() {
-                            Ok(register_pk_response::Result::OK) => {
-                                ok = true;
-                            }
-                            Ok(register_pk_response::Result::ID_EXISTS) => {
-                                return "Not available";
-                            }
-                            Ok(register_pk_response::Result::TOO_FREQUENT) => {
-                                return "Too frequent";
-                            }
-                            Ok(register_pk_response::Result::NOT_SUPPORT) => {
-                                return "server_not_support";
-                            }
-                            Ok(register_pk_response::Result::SERVER_ERROR) => {
-                                return "Server error";
-                            }
-                            Ok(register_pk_response::Result::INVALID_ID_FORMAT) => {
-                                return INVALID_FORMAT;
-                            }
-                            _ => {}
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-        if !ok {
-            return UNKNOWN_ERROR;
-        }
-    } else {
-        return "Failed to connect to rendezvous server";
-    }
-    ""
+pub async fn change_id_shared_(_id: String, _old_id: String) -> &'static str {
+    "ID registration is unavailable in the LAN-only build"
 }
 
 // if it's relay id, return id processed, otherwise return original id
@@ -1742,6 +1563,21 @@ pub fn is_remote_modify_enabled_by_control_permissions() -> Option<bool> {
 #[cfg(test)]
 mod tests {
     use super::{trim_video_save_directory, validate_windows_service_video_save_directory};
+
+    #[test]
+    fn lan_server_validation_rejects_names_and_public_ips() {
+        for proxy in [false, true] {
+            assert!(super::test_if_valid_server("192.168.1.20:21118".into(), proxy).is_empty());
+            for host in [
+                "example.com",
+                "example.com:21118",
+                "8.8.8.8",
+                "[::ffff:8.8.8.8]:80",
+            ] {
+                assert!(super::test_if_valid_server(host.into(), proxy).starts_with("LAN-only:"));
+            }
+        }
+    }
 
     #[test]
     fn trim_configured_video_save_directory() {

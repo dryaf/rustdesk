@@ -8,7 +8,7 @@ import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart';
-import 'package:url_launcher/url_launcher_string.dart';
+import 'package:flutter_hbb/utils/local_url.dart';
 import 'package:window_manager/window_manager.dart';
 
 class InstallPage extends StatefulWidget {

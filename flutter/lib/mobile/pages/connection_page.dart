@@ -7,7 +7,7 @@ import 'package:flutter_hbb/common/widgets/connection_page_title.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_hbb/utils/local_url.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
 
 import '../../common.dart';

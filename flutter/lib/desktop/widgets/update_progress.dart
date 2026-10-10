@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:get/get.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_hbb/utils/local_url.dart';
 
 final _isExtracting = false.obs;
 
