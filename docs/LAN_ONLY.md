@@ -289,6 +289,8 @@ features; `src/platform/windows.rs` declares the new Windows-only LAN module;
 the LAN IP display and interface selection on Windows. Linux/macOS enumeration
 keeps its existing path. The Windows implementation, build script, and workflow
 are new files; `README.md` and this document describe the build and its limits.
+`src/client.rs` restores the trait import needed to compile its existing non-Linux
+audio backend; the audio implementation itself is unchanged.
 
 Rechecked on 2026-10-10:
 

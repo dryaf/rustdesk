@@ -37,6 +37,8 @@ try {
     foreach ($file in 'rustdesk.exe', 'librustdesk.dll', 'flutter_windows.dll', 'data/icudtl.dat', 'data/app.so') {
         if (-not (Test-Path "$bundle/$file")) { throw "Incomplete bundle: $file" }
     }
+    $smoke = Start-Process -FilePath (Resolve-Path "$bundle/rustdesk.exe") -ArgumentList '--version' -NoNewWindow -Wait -PassThru
+    if ($smoke.ExitCode -ne 0) { throw 'The built Windows executable failed to start.' }
     $version = (Select-String '^version = "([^"]+)"' Cargo.toml | Select-Object -First 1).Matches[0].Groups[1].Value
     $name = "rustdesk-lan-$version-windows-x86_64"
     $releaseDir = Join-Path $PSScriptRoot 'build/releases/windows'

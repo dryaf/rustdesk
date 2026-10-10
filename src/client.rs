@@ -917,6 +917,8 @@ impl AudioHandler {
     /// Start the audio playback.
     #[cfg(not(target_os = "linux"))]
     fn start_audio(&mut self, format0: AudioFormat) -> ResultType<()> {
+        use hbb_common::anyhow::Context;
+
         let device = AUDIO_HOST
             .default_output_device()
             .with_context(|| "Failed to get default output device")?;
