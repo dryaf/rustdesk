@@ -98,6 +98,7 @@ use winreg::{enums::*, RegKey};
 
 mod acl;
 mod installer_handoff;
+pub(crate) mod lan;
 mod installer_shell;
 mod msi_registry;
 pub(crate) use acl::current_process_user_sid_string;

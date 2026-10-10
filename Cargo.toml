@@ -122,6 +122,9 @@ winapi = { version = "0.3", features = [
     "cfgmgr32",
     "ioapiset",
     "winspool",
+    "iphlpapi",
+    "iptypes",
+    "ws2ipdef",
 ] }
 windows = { version = "0.61", features = [
     "Win32",

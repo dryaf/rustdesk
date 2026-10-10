@@ -21,6 +21,11 @@ desktop app for the current machine. Setup installs Flutter locally and uses
 Linux and on your Mac; macOS needs its native prerequisites installed first.
 See [build setup](docs/LAN_ONLY.md#building) for details.
 
+Windows x86_64 builds use `build-lan-windows.ps1` and the dedicated
+[LAN Windows workflow](.github/workflows/lan-windows.yml). See
+[Windows builds](docs/LAN_ONLY.md#windows-x86_64) for the native prerequisites
+and ZIP layout.
+
 After the Linux release build, run `./install-lan.sh` from your desktop terminal.
 It installs the bundle under `/usr/local/lib/rustdesk-lan`, adds the
 `rustdesk-lan` command and a **RustDesk LAN** app-menu entry, and pins it to the

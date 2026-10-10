@@ -32,6 +32,9 @@ fn lan_interface_enumeration_includes_loopback() {
 }
 
 pub(crate) fn local_interfaces() -> Vec<(IpAddr, String)> {
+    #[cfg(windows)]
+    return crate::platform::windows::lan::local_interfaces();
+
     // default-net's enumeration sends gateway probes to a public IP.
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     match nix::ifaddrs::getifaddrs() {
@@ -53,6 +56,7 @@ pub(crate) fn local_interfaces() -> Vec<(IpAddr, String)> {
             "Cannot enumerate LAN interfaces: {err}"
         ),
     }
+    #[cfg(not(windows))]
     Vec::new()
 }
 

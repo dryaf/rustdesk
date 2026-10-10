@@ -106,6 +106,27 @@ ad hoc for local use; distribution signing, notarization, and DMG creation are n
 performed. macOS always builds the Rust library in release mode because the
 existing Xcode project requires that path, even for a debug Flutter app.
 
+### Windows x86_64
+
+The dedicated `.github/workflows/lan-windows.yml` builds on Windows Server 2022
+with Visual Studio, Rust 1.75.0, Flutter 3.24.5, LLVM 15, and the pinned vcpkg
+checkout. It installs only the software codec dependencies and applies the same
+Flutter SDK patch and Windows engine replacement as the upstream Windows build.
+Bridge generation uses cargo-expand 1.0.95 and flutter_rust_bridge_codegen 1.80.1.
+
+With those prerequisites and `VCPKG_ROOT` configured on Windows, run
+`./build-lan-windows.ps1` in PowerShell 7. The script generates the bridge, builds
+the Rust and Flutter components, runs the LAN tests, and creates a ZIP plus a
+SHA-256 checksum under `build/releases/windows/`. Extract the entire ZIP and run
+`rustdesk.exe`; its DLLs and `data` directory must remain beside it.
+
+This is an unsigned x86_64 build using software video codecs. Optional printer
+and virtual-display drivers and the topmost-window privacy helper are not bundled.
+Windows LAN address enumeration reads local adapter information through
+`GetAdaptersAddresses`; it does not probe public addresses. Windows discovery
+replies currently omit the MAC address used for wake-on-LAN. Interactive desktop
+capture and input still require testing on a real Windows PC.
+
 ## Installing on Ubuntu
 
 After `./build-lan.sh` has produced the Linux release bundle, run this in your
@@ -206,8 +227,8 @@ system installation requires sudo authentication in your terminal.
 - Some legacy dialogs and generated API names remain for compatibility; invoking
   a removed service cannot initiate an HTTP request.
 - macOS builds and an actual Mac-to-Linux session must be checked on those systems.
-- Interface enumeration and the displayed LAN address are supported on Linux
-  and macOS; other operating systems are outside this variant's supported scope.
+- Interface enumeration and the displayed LAN address are implemented on Linux,
+  macOS, and Windows; other operating systems are outside this variant's scope.
 
 ## Regression surface
 
@@ -261,6 +282,13 @@ necessary because **Run service** enables and starts `rustdesk.service`.
 Rust/Flutter service-control paths and the shared service template are unchanged.
 
 ## Verification
+
+Windows build regression surface: `Cargo.toml` enables three Windows API binding
+features; `src/platform/windows.rs` declares the new Windows-only LAN module;
+`src/lan.rs` routes Windows interface enumeration to it. These changes provide
+the LAN IP display and interface selection on Windows. Linux/macOS enumeration
+keeps its existing path. The Windows implementation, build script, and workflow
+are new files; `README.md` and this document describe the build and its limits.
 
 Rechecked on 2026-10-10:
 
