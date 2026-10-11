@@ -24,6 +24,7 @@ package="$stage/$name"
 mkdir -p "$package"
 ditto "$app" "$package/RustDesk.app"
 cp LICENCE install-lan-macos.sh "$package/"
+bash "$package/install-lan-macos.sh" --bundle "$package/RustDesk.app" --destdir "$stage/install-check"
 python3 - "$package/BUILD-INFO.json" "$version" "$commit" "$arch" <<'PY'
 import json, pathlib, sys
 path, version, commit, arch = sys.argv[1:]

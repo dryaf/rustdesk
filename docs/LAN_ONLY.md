@@ -150,7 +150,8 @@ Each job runs the Rust LAN regression tests and Flutter network-policy tests.
 `.github/scripts/package-lan-macos.sh` verifies the native architecture and app
 signature, then creates a ZIP with the full app, installer, license, and source
 metadata. It extracts the ZIP, verifies the signature again, and checks executable
-startup with `--version`. ZIPs and SHA-256 checksums are uploaded as Actions
+startup with `--version`. The included installer is also checked using a staging
+directory. ZIPs and SHA-256 checksums are uploaded as Actions
 artifacts named `rustdesk-lan-macos-arm64` and `rustdesk-lan-macos-x86_64`.
 These apps are signed ad hoc without Developer ID signing or notarization; macOS
 may require approval in Privacy & Security. A real Mac-to-Linux session still
@@ -158,9 +159,10 @@ needs testing. Push a change to its workflow,
 packaging script, or Bash build scripts on `lan-only` to trigger both builds.
 
 Regression surface for macOS CI: the workflow and packaging script are new files.
-Only `README.md` and this document change among existing files, to explain how
-to obtain the builds. Existing application runtime and local build paths are used
-without modification.
+`README.md` and this document explain how to obtain the builds.
+`install-lan-macos.sh` corrects its expected bundle identifier to match the existing
+Xcode project, so it accepts the built app. Existing application runtime and local
+build paths are used without modification.
 
 ### Windows x86_64
 

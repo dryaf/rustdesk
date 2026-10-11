@@ -44,7 +44,7 @@ bundle=${bundle:-$repo_root/flutter/build/macos/Build/Products/Release/RustDesk.
     -f "$bundle/Contents/Info.plist" ]] || die "Incomplete app: $bundle. Run ./build-lan-macos.sh first."
 bundle=$(cd -- "$bundle" && pwd -P)
 bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$bundle/Contents/Info.plist")
-[[ "$bundle_id" == com.carriez.flutterHbb ]] || die "Unexpected app bundle identifier: $bundle_id"
+[[ "$bundle_id" == com.carriez.rustdesk ]] || die "Unexpected app bundle identifier: $bundle_id"
 codesign --verify --deep --strict "$bundle"
 
 if [[ -n "$destdir" ]]; then
