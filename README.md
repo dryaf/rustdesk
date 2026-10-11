@@ -1,10 +1,20 @@
-# RustDesk LAN-only fork
+# RustDesk LAN — LAN-only remote desktop
 
-This fork is intended for a Linux host controlled from a macOS client. Build this
-source for both computers; upstream RustDesk downloads do not contain these changes.
+**This is a LAN-only version of RustDesk for Linux, Windows, and macOS.**
+Connect directly to another computer on your local network using its private IP
+address. This fork does not use RustDesk ID servers, relay servers, or cloud accounts.
 
-Start the host service, set a password, and connect from the Mac using the Linux
-computer's private IP (for example `192.168.1.20`). Direct access is enabled whenever
+Download the LAN-only builds from this fork:
+
+- [Linux x86_64](https://github.com/dryaf/rustdesk/releases/tag/v1.5.0-lan.1)
+- [Windows x86_64](https://github.com/dryaf/rustdesk/releases/tag/v1.5.0-lan.2)
+- [macOS — Apple Silicon and Intel](https://github.com/dryaf/rustdesk/releases/tag/v1.5.0-lan.3)
+
+Use these builds or build this source for both computers. Upstream RustDesk
+downloads do not contain the LAN-only changes.
+
+Start the host service, set a password, and connect from the other computer using
+the host's private IP (for example `192.168.1.20`). Direct access is enabled whenever
 the service is running. The default port is TCP **21118**; LAN discovery uses UDP
 **21119**. Allow these ports from your LAN in the host firewall. A custom port can
 be entered as `192.168.1.20:21118`.
@@ -46,9 +56,13 @@ It asks for sudo when copying system files. See
 [Linux installation](docs/LAN_ONLY.md#installing-on-ubuntu) for options.
 
 See [LAN-only implementation and verification](docs/LAN_ONLY.md) for scope,
-limitations, and the regression surface. The remaining README describes upstream
-build prerequisites and features; its server and account instructions do not apply
-to this fork.
+limitations, and the regression surface.
+
+## Upstream reference
+
+The remaining sections retain upstream project information, legacy build notes,
+and screenshots. Use the LAN build instructions above for this fork; upstream
+server, account, and Internet-connection features do not apply.
 
 <p align="center">
   <img src="res/logo-header.svg" alt="RustDesk - Your remote desktop"><br>
@@ -65,28 +79,16 @@ to this fork.
 > The developers of RustDesk do not condone or support any unethical or illegal use of this software. Misuse, such as unauthorized access, control or invasion of privacy, is strictly against our guidelines. The authors are not responsible for any misuse of the application.
 
 
-Chat with us: [Discord](https://discord.gg/nDceKgxnkV) | [Twitter](https://twitter.com/rustdesk) | [Reddit](https://www.reddit.com/r/rustdesk) | [YouTube](https://www.youtube.com/@rustdesk)
+Upstream community: [Discord](https://discord.gg/nDceKgxnkV) | [Twitter](https://twitter.com/rustdesk) | [Reddit](https://www.reddit.com/r/rustdesk) | [YouTube](https://www.youtube.com/@rustdesk)
 
-[![RustDesk Server Pro](https://img.shields.io/badge/RustDesk%20Server%20Pro-Advanced%20Features-blue)](https://rustdesk.com/pricing.html)
-
-Yet another remote desktop solution, written in Rust. Works out of the box with no configuration required. You have full control of your data, with no concerns about security. You can use our rendezvous/relay server, [set up your own](https://rustdesk.com/server), or [write your own rendezvous/relay server](https://github.com/rustdesk/rustdesk-server-demo).
+This fork is based on [RustDesk](https://github.com/rustdesk/rustdesk), an open-source
+remote desktop application written in Rust.
 
 ![image](https://user-images.githubusercontent.com/71636191/171661982-430285f0-2e12-4b1d-9957-4a58e375304d.png)
 
 RustDesk welcomes contribution from everyone. See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for help getting started.
 
 [**FAQ**](https://github.com/rustdesk/rustdesk/wiki/FAQ)
-
-[**BINARY DOWNLOAD**](https://github.com/rustdesk/rustdesk/releases)
-
-[**NIGHTLY BUILD**](https://github.com/rustdesk/rustdesk/releases/tag/nightly)
-
-[<img src="https://f-droid.org/badge/get-it-on.png"
-    alt="Get it on F-Droid"
-    height="80">](https://f-droid.org/en/packages/com.carriez.flutter_hbb)
-[<img src="https://flathub.org/api/badge?svg&locale=en"
-    alt="Get it on Flathub"
-    height="80">](https://flathub.org/apps/com.rustdesk.RustDesk)
 
 ## Dependencies
 
