@@ -72,8 +72,7 @@ jobs:
           test -f "$llvm_prefix/lib/libclang.dylib"
           echo "LIBCLANG_PATH=$llvm_prefix/lib" >> "$GITHUB_ENV"
 
-      - name: Install pinned Intel assembler
-        if: matrix.arch == 'x86_64'
+      - name: Install pinned assembler
         run: |
           curl --fail --location --retry 3 \
             https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/macosx/nasm-2.16.03-macosx.zip \
@@ -81,6 +80,7 @@ jobs:
           unzip -oq "$RUNNER_TEMP/nasm.zip" -d "$RUNNER_TEMP"
           mkdir -p build/lan-tools/bin
           install -m 755 "$RUNNER_TEMP/nasm-2.16.03/nasm" build/lan-tools/bin/nasm
+          build/lan-tools/bin/nasm --version
           echo "$GITHUB_WORKSPACE/build/lan-tools/bin" >> "$GITHUB_PATH"
 
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
