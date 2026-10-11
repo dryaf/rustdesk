@@ -1,0 +1,158 @@
+name: LAN macOS build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [lan-only]
+    paths:
+      - .github/workflows/lan-macos.yml
+      - .github/scripts/package-lan-macos.sh
+      - build-lan-macos.sh
+      - build-lan.sh
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+            flutter-arch: arm64
+            triplet: arm64-osx
+            deployment-target: '11.0'
+          - arch: x86_64
+            runner: macos-15-intel
+            flutter-arch: x64
+            triplet: x64-osx
+            deployment-target: '10.14'
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: '0'
+      VCPKG_ROOT: ${{ github.workspace }}/build/lan-vcpkg
+      VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}
+      VCPKG_DEFAULT_HOST_TRIPLET: ${{ matrix.triplet }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment-target }}
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      COCOAPODS_DISABLE_STATS: 'true'
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: 1.81.0
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          prefix-key: lan-macos-${{ matrix.arch }}
+          cache-on-failure: true
+
+      - name: Check native tools
+        run: |
+          xcodebuild -version
+          pod --version
+          cmake --version
+          pkg-config --version
+          llvm_prefix=$(brew --prefix llvm@18)
+          test -f "$llvm_prefix/lib/libclang.dylib"
+          echo "LIBCLANG_PATH=$llvm_prefix/lib" >> "$GITHUB_ENV"
+
+      - name: Install pinned Intel assembler
+        if: matrix.arch == 'x86_64'
+        run: |
+          curl --fail --location --retry 3 \
+            https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/macosx/nasm-2.16.03-macosx.zip \
+            --output "$RUNNER_TEMP/nasm.zip"
+          unzip -oq "$RUNNER_TEMP/nasm.zip" -d "$RUNNER_TEMP"
+          mkdir -p build/lan-tools/bin
+          install -m 755 "$RUNNER_TEMP/nasm-2.16.03/nasm" build/lan-tools/bin/nasm
+          echo "$GITHUB_WORKSPACE/build/lan-tools/bin" >> "$GITHUB_PATH"
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: 3.24.5
+          architecture: ${{ matrix.flutter-arch }}
+
+      - name: Apply the repository's Flutter compatibility patches
+        run: |
+          root=$(dirname "$(dirname "$(command -v flutter)")")
+          git -C "$root" apply "$GITHUB_WORKSPACE/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff"
+          python3 - "$root/packages/flutter/lib/src/scheduler/binding.dart" <<'PY'
+          import pathlib, sys
+          path = pathlib.Path(sys.argv[1])
+          path.write_text(path.read_text().replace('_setFramesEnabledState(false);', '//_setFramesEnabledState(false);'))
+          PY
+          flutter precache --macos
+
+      - name: Checkout the pinned vcpkg toolchain
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: microsoft/vcpkg
+          ref: 9e593bb18ea69cc5095e012465dcd675a822ed0d
+          path: build/lan-vcpkg
+
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        id: codecs
+        with:
+          path: |
+            build/lan-vcpkg/installed
+            build/lan-vcpkg/downloads
+          key: lan-macos-${{ matrix.arch }}-codecs-xcode16.4-9e593bb-${{ hashFiles('res/vcpkg/**') }}
+
+      - name: Build software codecs
+        run: |
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+          "$VCPKG_ROOT/vcpkg" install --classic \
+            --triplet "$VCPKG_DEFAULT_TRIPLET" --host-triplet "$VCPKG_DEFAULT_HOST_TRIPLET" \
+            --overlay-ports="$GITHUB_WORKSPACE/res/vcpkg" aom libvpx libyuv opus
+
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        if: steps.codecs.outputs.cache-hit != 'true'
+        with:
+          path: |
+            build/lan-vcpkg/installed
+            build/lan-vcpkg/downloads
+          key: ${{ steps.codecs.outputs.cache-primary-key }}
+
+      - name: Install pinned bridge generators
+        run: |
+          cargo install cargo-expand --version 1.0.95 --locked
+          cargo install flutter_rust_bridge_codegen --version 1.80.1 --features uuid --locked
+
+      - name: Build the LAN app
+        run: ./build-lan-macos.sh --release
+
+      - name: Run Rust LAN regression tests
+        run: cargo test --locked --release --lib --features flutter lan_ -- --test-threads=1
+
+      - name: Run Flutter LAN policy tests
+        working-directory: flutter
+        run: flutter test --no-pub test/lan_network_policy_test.dart
+
+      - name: Verify and package the macOS app
+        timeout-minutes: 5
+        run: bash .github/scripts/package-lan-macos.sh
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rustdesk-lan-macos-${{ matrix.arch }}
+          path: |
+            build/releases/macos/*.zip
+            build/releases/macos/*.sha256
+          if-no-files-found: error

@@ -28,6 +28,10 @@ The installer copies the signed app to `/Applications/RustDesk.app` using sudo.
 See [macOS setup](docs/LAN_ONLY.md#macos-prerequisites) and
 [macOS installation](docs/LAN_ONLY.md#installing-on-macos) for details.
 
+The [LAN macOS workflow](.github/workflows/lan-macos.yml) builds and tests separate
+Apple Silicon and Intel apps on GitHub's Mac runners. It packages ad-hoc-signed
+ZIPs and SHA-256 checksums; see [macOS CI builds](docs/LAN_ONLY.md#macos-ci-builds).
+
 Windows x86_64 builds use `build-lan-windows.ps1` and the dedicated
 [LAN Windows workflow](.github/workflows/lan-windows.yml). See
 [Windows builds](docs/LAN_ONLY.md#windows-x86_64) for the native prerequisites

@@ -139,6 +139,29 @@ ad hoc for local use; distribution signing, notarization, and DMG creation are n
 performed. macOS always builds the Rust library in release mode because the
 existing Xcode project requires that path, even for a debug Flutter app.
 
+### macOS CI builds
+
+`.github/workflows/lan-macos.yml` runs separate Apple Silicon (`macos-15`) and
+Intel (`macos-15-intel`) jobs using Xcode 16.4, Rust 1.81.0, Flutter 3.24.5, and
+the pinned vcpkg checkout. It prepares software codecs, applies the upstream
+Flutter compatibility patches, and invokes `build-lan-macos.sh --release`.
+Each job runs the Rust LAN regression tests and Flutter network-policy tests.
+
+`.github/scripts/package-lan-macos.sh` verifies the native architecture and app
+signature, then creates a ZIP with the full app, installer, license, and source
+metadata. It extracts the ZIP, verifies the signature again, and checks executable
+startup with `--version`. ZIPs and SHA-256 checksums are uploaded as Actions
+artifacts named `rustdesk-lan-macos-arm64` and `rustdesk-lan-macos-x86_64`.
+These apps are signed ad hoc without Developer ID signing or notarization; macOS
+may require approval in Privacy & Security. A real Mac-to-Linux session still
+needs testing. Push a change to its workflow,
+packaging script, or Bash build scripts on `lan-only` to trigger both builds.
+
+Regression surface for macOS CI: the workflow and packaging script are new files.
+Only `README.md` and this document change among existing files, to explain how
+to obtain the builds. Existing application runtime and local build paths are used
+without modification.
+
 ### Windows x86_64
 
 The dedicated `.github/workflows/lan-windows.yml` builds on Windows Server 2022
