@@ -74,6 +74,39 @@ Linux host needs the corresponding runtime libraries on the destination system.
 
 ### macOS prerequisites
 
+The macOS entry point automates native dependency setup using Homebrew. Install
+full Xcode from the Mac App Store or [Apple's downloads](https://developer.apple.com/download/all/),
+choosing a version compatible with your macOS. Place it in `/Applications`, open
+it once, and complete its first-launch setup. The standalone Command Line Tools
+are insufficient for this Flutter app. After `/Applications/Xcode.app` exists,
+select and initialize it:
+
+```bash
+sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -runFirstLaunch
+xcodebuild -version
+```
+
+If Xcode has a different name or location, use its actual `Contents/Developer`
+path. `xcode-select --switch` selects an installed Xcode; it does not install
+Xcode. Then install Rust 1.81 or newer with rustfmt and run:
+
+```bash
+./build-lan-macos.sh --setup
+./build-lan-macos.sh
+./install-lan-macos.sh
+```
+
+`--setup` installs CocoaPods, CMake, pkg-config and LLVM with Homebrew,
+initializes submodules, downloads Intel NASM 2.16.03 if needed, and prepares the
+pinned vcpkg dependencies and Flutter SDK. Downloads live in `build/lan-tools`;
+later invocations find them automatically. An explicit `VCPKG_ROOT` is respected
+and must match the manifest's baseline commit. `--check`, `--release` and
+`--debug` have the same behavior as `build-lan.sh`. The Mac entry point invokes
+that existing script for bridge generation, compilation and ad-hoc signing.
+
+To prepare the dependencies manually for `./build-lan.sh macos` instead:
+
 Install full Xcode, select it as the active developer directory, and complete its
 first-launch setup. Install CocoaPods, CMake, pkg-config, and LLVM (for libclang);
 for example with Homebrew:
@@ -180,6 +213,32 @@ Automatic pinning uses Ubuntu's system Python with PyGObject/GioUnix and GNOME
 Shell settings. If it fails, the files remain installed and the script prints
 instructions to retry or select **Add to Favorites** from the app menu. Actual
 system installation requires sudo authentication in your terminal.
+
+## Installing on macOS
+
+After building on your Mac, run `./install-lan-macos.sh` as your desktop user.
+It asks for sudo to copy the complete signed bundle to
+`/Applications/RustDesk.app`. Open RustDesk from Applications or run
+`open -a /Applications/RustDesk.app` and enter the Linux host's private IP.
+
+The installer verifies the bundle signature before copying and after staging.
+It records ownership in `/Applications/.rustdesk-lan-install`, outside the
+signed bundle. Rerunning it replaces an earlier installer-owned app and removes
+stale bundled files. It refuses an unrelated existing RustDesk app or installation
+symlink. Move an unrelated installation aside manually first. User configuration
+is kept separately and is not copied or removed by this installer.
+
+Close RustDesk before updating. If the Mac has a RustDesk host service, uninstall
+that service through the app first; this client installer does not manage
+launchd jobs. It does not register or start a service or change Dock settings.
+The app is signed ad hoc for local use, without Developer ID signing or
+notarization. macOS may request confirmation when opening a copied build.
+
+Options:
+
+- `--bundle DIR`: install another complete `.app`, including a debug build.
+- `--destdir DIR`: stage `Applications/RustDesk.app` and the ownership marker
+  under DIR without sudo, launching the app, or changing the system installation.
 
 ## Network boundary
 

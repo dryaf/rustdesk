@@ -21,6 +21,13 @@ desktop app for the current machine. Setup installs Flutter locally and uses
 Linux and on your Mac; macOS needs its native prerequisites installed first.
 See [build setup](docs/LAN_ONLY.md#building) for details.
 
+On macOS, use `./build-lan-macos.sh --setup`, then `./build-lan-macos.sh` and
+`./install-lan-macos.sh`. Setup installs the native dependencies with Homebrew
+and prepares local Flutter, vcpkg and Intel NASM. Install Xcode and Rust first.
+The installer copies the signed app to `/Applications/RustDesk.app` using sudo.
+See [macOS setup](docs/LAN_ONLY.md#macos-prerequisites) and
+[macOS installation](docs/LAN_ONLY.md#installing-on-macos) for details.
+
 Windows x86_64 builds use `build-lan-windows.ps1` and the dedicated
 [LAN Windows workflow](.github/workflows/lan-windows.yml). See
 [Windows builds](docs/LAN_ONLY.md#windows-x86_64) for the native prerequisites
